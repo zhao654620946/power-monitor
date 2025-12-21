@@ -63,14 +63,8 @@ jobs:
 
             if [ "$EXIST" -eq 0 ]; then
               gh issue create \
-                --title "$TITLE" \
-                --body "⚠️ **宿舍电费不足提醒**  
-
-当前电费：**${VALUE} 度**  
-阈值：**${THRESHOLD} 度**  
-记录时间：${TIME}  
-
-请尽快充值。"
+                 --title "$TITLE" \
+                 --body "⚠️ **宿舍电费不足提醒**\n\n当前电费：**${VALUE} 度**\n阈值：**${THRESHOLD} 度**\n记录时间：${TIME}\n\n请尽快充值。"
             fi
           fi
 
