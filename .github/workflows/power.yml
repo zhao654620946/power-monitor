@@ -1,0 +1,38 @@
+name: power-monitor
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  fetch-power:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch power data
+        env:
+          POWER_URL: ${{ secrets.POWER_URL }}
+          POWER_RID: ${{ secrets.POWER_RID }}
+          POWER_TOKEN: ${{ secrets.POWER_TOKEN }}
+          TZ: Asia/Shanghai
+        run: |
+          RESPONSE=$(curl -s -X POST "$POWER_URL" \
+            -H 'content-type: application/x-www-form-urlencoded;charset=UTF-8' \
+            --data "rid=${POWER_RID}&token=${POWER_TOKEN}")
+
+          VALUE=$(echo "$RESPONSE" | jq -r '.data[0].oddelec')
+          [ "$VALUE" = "null" ] && exit 0
+
+          TIME=$(date '+%F %T')
+          echo "$TIME $VALUE" >> power.txt
+
+      - name: Commit and push
+        run: |
+          git config user.name "power-bot"
+          git config user.email "power-bot@users.noreply.github.com"
+          git add power.txt
+          git diff --cached --quiet || git commit -m "update power data"
+          git push
