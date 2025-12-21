@@ -6,7 +6,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 * * * *"   # 每小时（UTC）
+    - cron: "*/1 * * * *"  # 每分钟触发（测试用）
   workflow_dispatch:
 
 jobs:
