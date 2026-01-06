@@ -6,7 +6,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 * * * *"   # 每小时执行
   workflow_dispatch:
 
 jobs:
@@ -20,8 +20,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
-          pip3 install matplotlib pandas
+          sudo apt-get install -y python3 python3-pip jq bc
+          pip3 install pandas matplotlib
 
       - name: Fetch power data and alert if low
         env:
@@ -63,17 +63,19 @@ jobs:
 
             if [ "$EXIST" -eq 0 ]; then
               gh issue create \
-                 --title "$TITLE" \
-                 --body "⚠️ **宿舍电费不足提醒**\n\n当前电费：**${VALUE} 度**\n阈值：**${THRESHOLD} 度**\n记录时间：${TIME}\n\n请尽快充值。"
+                --title "$TITLE" \
+                --body "⚠️ **宿舍电费不足提醒**\n\n当前电费：**${VALUE} 度**\n阈值：**${THRESHOLD} 度**\n记录时间：${TIME}\n\n请尽快充值。"
             fi
           fi
 
-      - name: Generate power trend chart
+      - name: Generate charts and update README
         run: |
           python3 << 'EOF'
           import pandas as pd
           import matplotlib.pyplot as plt
+          from pathlib import Path
 
+          # ===== 读取数据 =====
           df = pd.read_csv(
               "power.txt",
               sep=" ",
@@ -81,23 +83,70 @@ jobs:
               parse_dates=[["date", "time"]]
           )
 
-          plt.figure(figsize=(10, 5))
-          plt.plot(df["date_time"], df["power"], marker="o")
-          plt.xlabel("Time")
-          plt.ylabel("Remaining Power")
-          plt.title("Dormitory Power Trend")
-          plt.xticks(rotation=45)
-          plt.tight_layout()
-          plt.grid(True)
+          df = df.sort_values("date_time")
+          df.set_index("date_time", inplace=True)
+          df["power"] = df["power"].astype(float)
 
-          plt.savefig("power.png")
+          # ===== 画图函数 =====
+          def plot(data, title, filename):
+              plt.figure(figsize=(10, 5))
+              plt.plot(data.index, data["power"])
+              plt.title(title)
+              plt.xlabel("Time")
+              plt.ylabel("Remaining Power")
+              plt.grid(True)
+              plt.tight_layout()
+              plt.savefig(filename)
+              plt.close()
+
+          plot(df, "Total Power Trend", "power_all.png")
+          plot(df.last("30D"), "Power Trend - Last 30 Days", "power_30d.png")
+          plot(df.last("7D"), "Power Trend - Last 7 Days", "power_7d.png")
+          plot(df.last("24H"), "Power Trend - Last 24 Hours", "power_24h.png")
+
+          # ===== 每天用电量 =====
+          df["usage"] = -df["power"].diff()
+          daily = df["usage"].resample("D").sum()
+          daily = daily[daily > 0].tail(30)
+
+          # 保存 CSV
+          daily.to_csv("daily_usage.csv", header=["daily_usage"])
+
+          # ===== 生成 Markdown 表格 =====
+          md = []
+          md.append("| 日期 | 用电量 (度) |")
+          md.append("|------|-------------|")
+
+          for date, val in daily.items():
+              md.append(f"| {date.date()} | {val:.2f} |")
+
+          table_md = "\n".join(md)
+
+          # ===== 更新 README =====
+          readme = Path("README.md")
+          content = readme.read_text(encoding="utf-8")
+
+          start = "<!-- DAILY_POWER_TABLE_START -->"
+          end = "<!-- DAILY_POWER_TABLE_END -->"
+
+          new_content = (
+              content.split(start)[0]
+              + start
+              + "\n\n"
+              + table_md
+              + "\n\n"
+              + end
+              + content.split(end)[1]
+          )
+
+          readme.write_text(new_content, encoding="utf-8")
           EOF
 
-      - name: Commit and push data & chart
+      - name: Commit and push updates
         run: |
           git config user.name "power-bot"
           git config user.email "power-bot@users.noreply.github.com"
 
-          git add power.txt power.png
-          git diff --cached --quiet || git commit -m "update power data and chart"
+          git add power.txt *.png daily_usage.csv README.md
+          git diff --cached --quiet || git commit -m "update power data, charts and daily usage table"
           git push
