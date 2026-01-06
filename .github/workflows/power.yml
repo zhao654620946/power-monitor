@@ -104,10 +104,19 @@ jobs:
           plot(df.last("7D"), "Power Trend - Last 7 Days", "power_7d.png")
           plot(df.last("24H"), "Power Trend - Last 24 Hours", "power_24h.png")
 
-          # ===== 每天用电量 =====
-          df["usage"] = -df["power"].diff()
-          daily = df["usage"].resample("D").sum()
-          daily = daily[daily > 0].tail(30)
+          # ===== 计算用电量（修正版） =====
+          diff = df["power"].diff()
+
+          # 只统计“电量下降”的部分
+          usage = diff.where(diff < 0, 0).abs()
+
+          daily = usage.resample("D").sum()
+
+          # 没有用电的天数补 0
+          daily = daily.fillna(0)
+  
+          # 只保留最近 30 天
+          daily = daily.tail(30)
 
           # 保存 CSV
           daily.to_csv("daily_usage.csv", header=["daily_usage"])
