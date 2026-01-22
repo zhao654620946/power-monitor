@@ -55,7 +55,7 @@ jobs:
           fi
           printf "%s %.2f\n" "$TIME" "$VALUE" >> power.txt
 
-          cat power.txt
+          # cat power.txt
 
           # ===== 低电量提醒 =====
           THRESHOLD=20
@@ -119,9 +119,14 @@ jobs:
               plt.close()
 
           plot(df, "Total Power Trend", "power_all.png")
-          plot(df.last("30D"), "Power Trend - Last 30 Days", "power_30d.png")
-          plot(df.last("7D"), "Power Trend - Last 7 Days", "power_7d.png")
-          plot(df.last("24H"), "Power Trend - Last 24 Hours", "power_24h.png")
+          plot(df.loc[df.index >= df.index.max() - pd.Timedelta(days=30)],
+               "Power Trend - Last 30 Days", "power_30d.png")
+
+          plot(df.loc[df.index >= df.index.max() - pd.Timedelta(days=7)],
+               "Power Trend - Last 7 Days", "power_7d.png")
+
+          plot(df.loc[df.index >= df.index.max() - pd.Timedelta(hours=24)],
+               "Power Trend - Last 24 Hours", "power_24h.png")
 
           # ===== 计算用电量（修正版） =====
           diff = df["power"].diff()
