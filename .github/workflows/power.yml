@@ -88,10 +88,19 @@ jobs:
           # ===== 读取数据 =====
           df = pd.read_csv(
               "power.txt",
-              sep=" ",
+              sep=r"\s+",
               names=["date", "time", "power"],
-              parse_dates=[["date", "time"]]
+              engine="python"
           )
+
+          # 合并时间列（关键改动）
+          df["date_time"] = pd.to_datetime(
+              df["date"] + " " + df["time"],
+              errors="coerce"
+          )
+
+          # 清洗
+          df = df.dropna(subset=["date_time", "power"])
 
           df = df.sort_values("date_time")
           df.set_index("date_time", inplace=True)
