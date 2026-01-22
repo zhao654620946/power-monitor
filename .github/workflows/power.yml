@@ -45,7 +45,15 @@ jobs:
           fi
 
           TIME=$(date '+%F %T')
-          echo "$TIME $VALUE" >> power.txt
+          # 去掉空白
+          VALUE=$(echo "$VALUE" | xargs)
+
+          # 必须是数字（允许 0 / 0.00 / 12.34）
+          if ! echo "$VALUE" | grep -Eq '^[0-9]+([.][0-9]+)?$'; then
+            echo "Invalid power value: $VALUE"
+            exit 0
+          fi
+          printf "%s %.2f\n" "$TIME" "$VALUE" >> power.txt
 
           # ===== 低电量提醒 =====
           THRESHOLD=20
