@@ -55,6 +55,8 @@ jobs:
           fi
           printf "%s %.2f\n" "$TIME" "$VALUE" >> power.txt
 
+          cat power.txt
+
           # ===== 低电量提醒 =====
           THRESHOLD=20
           LOW=$(echo "$VALUE < $THRESHOLD" | bc)
